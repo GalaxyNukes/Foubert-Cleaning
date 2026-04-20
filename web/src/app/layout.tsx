@@ -1,5 +1,6 @@
 import type {Metadata} from 'next'
-import {Bricolage_Grotesque, Geist} from 'next/font/google'
+import {Bricolage_Grotesque} from 'next/font/google'
+import {GeistSans} from 'geist/font/sans'
 import './globals.css'
 import {client, SETTINGS_QUERY} from '@/sanity/client'
 import type {SiteSettings} from '@/sanity/types'
@@ -8,12 +9,6 @@ import {RevealInit, ScrollNav, SmoothScroll} from '@/components/shared/Interacti
 const bricolage = Bricolage_Grotesque({
   subsets: ['latin'],
   variable: '--font-bricolage',
-  display: 'swap',
-})
-
-const geist = Geist({
-  subsets: ['latin'],
-  variable: '--font-geist',
   display: 'swap',
 })
 
@@ -44,7 +39,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default function RootLayout({children}: {children: React.ReactNode}) {
   return (
-    <html lang="nl" className={`${bricolage.variable} ${geist.variable}`}>
+    <html lang="nl" className={`${bricolage.variable} ${GeistSans.variable}`}>
       <body>
         {children}
         <RevealInit />

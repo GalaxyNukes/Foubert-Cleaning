@@ -1,104 +1,110 @@
-# Foubert Cleaning — Next.js Frontend
+# Foubert Cleaning — Website & CMS
 
-Production-klare Next.js 15 (App Router) site die content uit Sanity haalt.
-Rendert alle blokken die in het CMS geconfigureerd zijn.
+Complete technische stack voor [foubertcleaning.be](https://foubertcleaning.be) —
+een glazenwasserij in Duffel. Bestaat uit drie onderdelen:
 
-## Setup (5 min)
+| Folder | Doel | Tech |
+|---|---|---|
+| `prototype/` | Statisch HTML-prototype (design-referentie) | HTML + CSS + JS |
+| `cms/` | Sanity Studio met drag-and-drop page builder | Sanity v3, TypeScript |
+| `web/` | Productie-website die Sanity-data consumeert | Next.js 15, TypeScript |
+
+## Architectuur
+
+```
+┌──────────────────┐       ┌──────────────────┐       ┌──────────────────┐
+│  Marlon bewerkt  │       │  Sanity dataset  │       │  Next.js site    │
+│  via Studio  ────┼──────►│  (cloud)      ◄──┼───────┤  ISR 60s rebuild │
+│  (cms/)          │       │                  │       │  (web/)          │
+└──────────────────┘       └──────────────────┘       └──────────────────┘
+                                                             │
+                                                             ▼
+                                                   foubertcleaning.be
+```
+
+## Snelstart
+
+### 1. Sanity Studio opzetten
 
 ```bash
+cd cms
+npm install
+cp .env.example .env
+# Maak een nieuw project op sanity.io/manage, vul projectId in in .env
+npx sanity login
+npm run seed           # importeert alle placeholder-content
+npm run dev            # studio draait op localhost:3333
+```
+
+Lees verder: [cms/README.md](./cms/README.md)
+
+### 2. Next.js site opzetten
+
+```bash
+cd web
 npm install
 cp .env.example .env.local
-# Vul NEXT_PUBLIC_SANITY_PROJECT_ID in (zelfde als in Sanity Studio)
-npm run dev
+# Zet NEXT_PUBLIC_SANITY_PROJECT_ID (zelfde als in Sanity Studio)
+npm run dev            # site draait op localhost:3000
 ```
 
-Site draait op `http://localhost:3000`. Elk blok dat je in Sanity toevoegt,
-versleept of verwijdert verschijnt hier binnen 60 seconden (ISR revalidate).
+Lees verder: [web/README.md](./web/README.md)
 
-## Stack
-
-- **Next.js 15** App Router + ISR (`revalidate = 60`)
-- **Sanity** via `@sanity/client` en `next-sanity`
-- **Google Fonts**: Bricolage Grotesque + Geist (zelfde als prototype)
-- **Server Components** voor SEO — client components alleen voor interactiviteit
-  (FAQ accordion, before/after slider, contact-formulier)
-
-## Bestandsstructuur
-
-```
-src/
-├── app/
-│   ├── globals.css          # Alle design tokens + block styles
-│   ├── layout.tsx           # Root layout + fonts + interactieve scripts
-│   ├── page.tsx             # Homepage: haalt Sanity data, rendert secties, JSON-LD
-│   └── sitemap.ts           # SEO sitemap
-├── sanity/
-│   ├── client.ts            # Sanity client + GROQ queries
-│   └── types.ts             # TypeScript types voor alle blokken
-├── lib/
-│   └── cta.ts               # CTA href/target resolution
-├── components/
-│   ├── SectionRenderer.tsx  # Router: switch op _type
-│   ├── shared/
-│   │   ├── Chrome.tsx       # Nav + Footer (uit siteSettings)
-│   │   └── Interactive.tsx  # CtaLink + reveal observer + scroll nav
-│   └── blocks/
-│       ├── HeroAboutForWho.tsx
-│       ├── Portfolio.tsx           # Met werkende before/after slider
-│       ├── ProcessAreaFaqReviews.tsx
-│       └── ContactRemaining.tsx    # Contact + Text + Image + CtaBand
-└── public/
-    └── logo/                # Fallback logo's (voor als Sanity leeg is)
-```
-
-## SEO
-
-- **Metadata** uit `homepage.seo` met fallback naar `siteSettings.defaultSeo`
-- **JSON-LD** `LocalBusiness` schema uit `siteSettings.localBusiness` — geeft
-  Google alle info voor rich snippets en Maps (naam, adres, servicegebied,
-  openingsuren, coördinaten, socials).
-- **Open Graph** tags voor WhatsApp/Facebook/LinkedIn shares
-- **Sitemap** op `/sitemap.xml`
-- **robots.txt** op `/robots.txt`
-- **Canonical URL** via `metadataBase`
-
-## Contactformulier
-
-Het formulier werkt visueel maar stuurt nog niets. Drie opties voor backend:
-
-1. **Resend + API route** (aanbevolen — gratis tot 100/dag):
-   ```bash
-   npm install resend
-   ```
-   Maak `src/app/api/contact/route.ts` aan.
-
-2. **Formspree** (geen code — gewoon `action="https://formspree.io/f/..."`)
-
-3. **Sanity webhook** (opslaan in Sanity dataset, notificeren via email)
-
-Laat me weten welke je wil — dan bouw ik die stap.
-
-## Deployen
+### 3. Prototype bekijken
 
 ```bash
-# Vercel (aanbevolen — gratis tier volstaat ruim):
-npm install -g vercel
-vercel
-
-# Of via Vercel dashboard: connect GitHub repo, zet env vars, done.
+cd prototype
+# Open index.html rechtstreeks in de browser
 ```
 
-Zet deze environment variables in Vercel:
+## Ontwikkelworkflow
+
+**Content-wijzigingen** (tekst, foto's, blokvolgorde):
+1. Marlon opent de Studio (online op `foubert-cleaning.sanity.studio`)
+2. Wijzigt content, drukt Publish
+3. Binnen 60s zichtbaar op de live site — geen code-deploy nodig
+
+**Code-wijzigingen** (design, nieuwe blokken, functionaliteit):
+1. Aanpassen in `web/` en/of `cms/`
+2. Voor nieuwe blokken: schema in `cms/schemas/blocks/`, component in `web/src/components/blocks/`, toevoegen aan `SectionRenderer.tsx`
+3. Push naar GitHub → Vercel deploy (auto) + `npm run deploy` voor CMS
+
+## Deployment
+
+- **Sanity Studio**: `cd cms && npm run deploy` → komt online op `*.sanity.studio`
+- **Next.js site**: Connect GitHub-repo aan Vercel, auto-deploy bij elke push
+- **DNS**: foubertcleaning.be → Vercel
+
+## Technologische keuzes (rationale)
+
+- **Sanity** ipv WordPress/Webflow: echte structured content, versie-controle,
+  TypeScript-types, drag-and-drop page builder, gratis tier ruim voldoende
+- **Next.js 15** ipv Astro: mixte SSR/ISR aanpak is ideaal voor content-driven
+  sites met dynamische backend (contactformulier, toekomstige features)
+- **Server Components** als default, Client Components alleen voor interactiviteit:
+  maximaal SEO-vriendelijk, minimaal JavaScript naar de browser
+
+## Volgende stappen
+
+- [ ] Form-handler kiezen (Resend / Formspree / Sanity-opslag)
+- [ ] Echte foto's shooten en uploaden (shotlist in Studio-placeholders)
+- [ ] Mobile nav-menu (hamburger) afwerken
+- [ ] Google Analytics of Plausible toevoegen
+- [ ] Domein koppelen en live zetten
+
+## Vercel deployment (belangrijke configuratie)
+
+Deze repo is een **monorepo** met 3 projecten. Vercel moet weten dat
+alleen `web/` de Next.js-app is.
+
+**Optie A — Code-based (automatisch via `vercel.json`):**
+De `vercel.json` in de repo-root regelt dit al. Vercel zal automatisch
+in `web/` bouwen.
+
+**Optie B — Dashboard-based (als backup):**
+In Vercel → Project Settings → General → "Root Directory" → zet op `web`.
+
+Vergeet niet deze environment variables te zetten:
 - `NEXT_PUBLIC_SANITY_PROJECT_ID`
-- `NEXT_PUBLIC_SANITY_DATASET=production`
-- `NEXT_PUBLIC_SITE_URL=https://foubertcleaning.be`
-
-## Integratie met het CMS
-
-De Next.js site en de Sanity Studio zijn twee aparte projecten die
-dezelfde dataset delen. Workflow:
-
-1. Marlon bewerkt content in Sanity Studio (online op `foubert-cleaning.sanity.studio`)
-2. Hij klikt "Publish"
-3. Binnen 60 seconden haalt de live Next.js site de nieuwe data op (ISR)
-4. Geen rebuild nodig — content-updates zijn realtime zonder deploy
+- `NEXT_PUBLIC_SANITY_DATASET` = `production`
+- `NEXT_PUBLIC_SITE_URL` = `https://foubertcleaning.be`
